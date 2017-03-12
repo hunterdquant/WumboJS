@@ -10,7 +10,7 @@
 %}
 
 %union {
-	stack_t *stkval;
+	sym_stack_t *stkval;
 	char *sval;
 	int ival;
 	float fval;

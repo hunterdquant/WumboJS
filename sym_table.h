@@ -1,3 +1,5 @@
+#include "defs.h"
+
 #define HASH_SIZE 211
 #define EOS '\0'
 
@@ -6,37 +8,34 @@ typedef struct node_s {
 
     char *sym;
     struct node_s *next;
-    int type;
-    union {
-        int ival;
-        float fval;
-    };
+    sym_type type;
+    int offset;
 
-} node_t;
+} sym_node_t;
 
 typedef struct table_s {
 
-    node_t *table[HASH_SIZE];
+    sym_node_t *table[HASH_SIZE];
 
-} table_t;
+} sym_table_t;
 
 typedef struct stack_s {
 
-    table_t *scope;
+    sym_table_t *scope;
     struct stack_s *next;
 
-} stack_t;
+} sym_stack_t;
 
-stack_t *init_stack(table_t *);
-stack_t *stack_pop(stack_t *);
-stack_t *stack_push(stack_t *, table_t *);
-node_t *search_stack(stack_t *, char *);
+sym_stack_t *init_stack(sym_table_t *);
+sym_stack_t *stack_pop(sym_stack_t *);
+sym_stack_t *stack_push(sym_stack_t *, sym_table_t *);
+sym_node_t *search_stack(sym_stack_t *, char *);
 
-table_t *init_table();
-node_t *table_put(table_t *, char *);
-node_t *table_get(table_t *, char *);
+sym_table_t *init_table();
+sym_node_t *table_put(sym_table_t *, char *);
+sym_node_t *table_get(sym_table_t *, char *);
 
-node_t *init_node(char *);
+sym_node_t *init_node(char *);
 
 int hashpjw(char *);
 

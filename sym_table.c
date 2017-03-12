@@ -4,28 +4,28 @@
 
 #include "sym_table.h"
 
-stack_t *init_stack(table_t *t) {
-    stack_t *s = (stack_t *)malloc(sizeof(stack_t));
+sym_stack_t *init_stack(sym_table_t *t) {
+    sym_stack_t *s = (sym_stack_t *)malloc(sizeof(sym_stack_t));
     s->scope = t;
     return s;
 }
 
-stack_t *stack_pop(stack_t *s) {
-    stack_t *tmp = s;
+sym_stack_t *stack_pop(sym_stack_t *s) {
+    sym_stack_t *tmp = s;
     s = s->next;
     return tmp;
 }
 
-stack_t *stack_push(stack_t *s, table_t *t) {
-    stack_t *tmp = init_stack(t);
+sym_stack_t *stack_push(sym_stack_t *s, sym_table_t *t) {
+    sym_stack_t *tmp = init_stack(t);
     tmp->next = s;
     s = tmp;
     return s;
 }
 
-node_t *search_stack(stack_t *s, char *sym) {
-    stack_t *cur = s;
-    node_t *n = NULL;
+sym_node_t *search_stack(sym_stack_t *s, char *sym) {
+    sym_stack_t *cur = s;
+    sym_node_t *n = NULL;
     while ((n = table_get(cur->scope, sym)) == NULL) {
         if (cur->next == NULL) {
             break;
@@ -35,14 +35,13 @@ node_t *search_stack(stack_t *s, char *sym) {
     return n;
 }
 
-
-table_t *init_table() {
-    return (table_t*)malloc(sizeof(table_t));
+sym_table_t *init_table() {
+    return (sym_table_t*)malloc(sizeof(sym_table_t));
 }
 
-node_t *table_put(table_t *t, char *sym) {
+sym_node_t *table_put(sym_table_t *t, char *sym) {
     int hash = hashpjw(sym);
-    node_t *cur = t->table[hash];
+    sym_node_t *cur = t->table[hash];
     if (cur != NULL) {
         while (cur->next != NULL) {
             cur = cur->next;
@@ -54,9 +53,9 @@ node_t *table_put(table_t *t, char *sym) {
     return cur;
 }
 
-node_t *table_get(table_t *t, char *sym) {
+sym_node_t *table_get(sym_table_t *t, char *sym) {
     int hash = hashpjw(sym);
-    node_t *cur = t->table[hash];
+    sym_node_t *cur = t->table[hash];
     while (cur != NULL) {
         if (strcmp(cur->sym, sym) == 1) {
             break;
@@ -66,10 +65,39 @@ node_t *table_get(table_t *t, char *sym) {
     return cur;
 }
 
-node_t *init_node(char *sym) {
-    node_t *n = (node_t*)malloc(sizeof(node_t));
+sym_node_t *init_node(char *sym) {
+    sym_node_t *n = (sym_node_t*)malloc(sizeof(sym_node_t));
     n->sym = sym;
     return n;
+}
+
+void free_node(sym_node_t *node) {
+    if (node == NULL) {
+        return;
+    }
+    free_node(node->next);
+    free(node);
+}
+
+void free_table(sym_table_t *table) {
+    int i;
+    if (table == NULL) {
+        return;
+    }
+    for (i = 0; i < HASH_SIZE; i++) {
+        if (table->table[i]) {
+            free_node(table->table[i]->next);
+        }
+    }
+    free(table);
+}
+
+void free_stack(sym_stack_t *stack) {
+    if (stack == NULL) {
+        return;
+    }
+    free_table(stack->scope);
+    free(stack);
 }
 
 /* ----------------------------------------------------------------------------- 
