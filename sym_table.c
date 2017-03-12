@@ -36,7 +36,7 @@ sym_node_t *search_stack(sym_stack_t *s, char *sym) {
 }
 
 sym_table_t *init_table() {
-    return (sym_table_t*)malloc(sizeof(sym_table_t));
+    return (sym_table_t*)calloc(1, sizeof(sym_table_t));
 }
 
 sym_node_t *table_put(sym_table_t *t, char *sym) {
@@ -46,7 +46,7 @@ sym_node_t *table_put(sym_table_t *t, char *sym) {
         while (cur->next != NULL) {
             cur = cur->next;
         }
-        cur = init_node(sym);
+        cur->next = init_node(sym);
     } else {
         t->table[hash] = cur = init_node(sym);
     }
