@@ -1,8 +1,9 @@
-#include "defs.h"
+#ifndef __SYM_TABLE__
+#define __SYM_TABLE__
 
+#include "defs.h"
 #define HASH_SIZE 211
 #define EOS '\0'
-
 
 typedef struct node_s {
 
@@ -10,13 +11,11 @@ typedef struct node_s {
     struct node_s *next;
     sym_type type;
     int offset;
-
 } sym_node_t;
 
 typedef struct table_s {
 
     sym_node_t *table[HASH_SIZE];
-
 } sym_table_t;
 
 typedef struct stack_s {
@@ -39,3 +38,4 @@ sym_node_t *init_node(char *);
 
 int hashpjw(char *);
 
+#endif

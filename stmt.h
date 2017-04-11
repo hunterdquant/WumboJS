@@ -1,5 +1,11 @@
+#ifndef __STMT__
+#define __STMT__
+
 #include "sym_table.h"
 #include "defs.h"
+
+struct stmt_list_s;
+typedef struct stmt_list_s stmt_list_t;
 
 typedef struct stmt_s {
     stmt_type type;
@@ -19,11 +25,11 @@ typedef struct stmt_s {
         } while_stmt;
         struct {
             exp_tree_t *exp_bound;
-            struct assn_stmt *assign_stmt;
+            struct stmt_s *assign_stmt;
             struct stmt_s *body_stmt;
         } for_stmt;
         struct {
-            struct stmt_s *body_stmt;
+            stmt_list_t *body_stmt;
         } compound_stmt;
         struct {
             sym_node_t *sym_ref;
@@ -31,3 +37,11 @@ typedef struct stmt_s {
         } proc_stmt;
     } stmt;
 } stmt_t;
+
+struct stmt_list_s {
+    stmt_t *stmt;
+    struct stmt_list_s *next;
+};
+
+void print_stmt_tree(stmt_t *, int);
+#endif

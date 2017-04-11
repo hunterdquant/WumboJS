@@ -4,4 +4,3 @@ program main( input, output );
   var x,y,c: real;
 begin
 end.
-

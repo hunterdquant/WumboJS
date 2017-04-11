@@ -6,14 +6,27 @@
   #include <stdlib.h>
   #include <assert.h>
 
+
   #include "sym_table.h"
+  #include "exp_tree.h"
+  #include "defs.h"
+  #include "stmt.h"
+
+
+  extern FILE *yyin;
+  extern long int LINE_COUNT;
 %}
 
 %union {
-	sym_stack_t *stkval;
 	char *sval;
 	int ival;
 	float fval;
+	op_type opval;
+	sym_stack_t *sym_stack_val;
+	stmt_t *stmt_val;
+	exp_tree_t *exp;
+	exp_list_t *exp_list_val;
+	stmt_list_t *stmt_list_val;
 }
 
 %token PROGRAM
@@ -24,7 +37,7 @@
 %token REAL
 %token FUNCTION
 %token PROCEDURE
-%token BEGIN
+%token BBEGIN
 %token END
 %token ASSIGNOP
 %token IF
@@ -44,7 +57,12 @@
 %token <ival> INUM
 %token <fval> RNUM
 
-%type <stkval> program
+%type <sym_stack_val> program
+// %type <stmt_t> statement;
+// %type <exp_tree_t> expression;
+// %type <exp_list_t> expression_list;
+// %type <stmt_list_t> statement_list;
+
 
 %%
 program:
@@ -53,7 +71,7 @@ program:
 	subprogram_declarations 
 	compound_statement 
 	'.'
-	{ $$ = init_stack(init_table()); fprintf(stderr, "TEST");}
+	{ $$ = init_stack(init_table());}
 	;
 
 identifier_list: ID 
@@ -80,8 +98,7 @@ subprogram_head: FUNCTION ID arguments ':' standard_type ';'
 	| PROCEDURE ID arguments ';'
 	;
 
-arguments: 
-	| '(' parameter_list ')'
+arguments: '(' parameter_list ')'
 	| empty
 	;
 
@@ -89,7 +106,7 @@ parameter_list: identifier_list ':' type
 	| parameter_list ';' identifier_list ':' type
 	;
 
-compound_statement: BEGIN optional_statements END;
+compound_statement: BBEGIN optional_statements END;
 
 optional_statements: statement_list
 	| empty
@@ -142,3 +159,28 @@ factor: ID
 	;
 
 empty:  ;
+
+
+%%
+
+int main(int argc, char ** argv) {
+	if (argc != 2) {
+		fprintf(stderr, "USAGE: ./wumbo <inputfile>");
+		return -1;
+	}
+	
+	FILE *input_file = fopen(argv[1], "r");
+
+	if (!input_file) {
+		fprintf(stderr, "Can't open input file: %s\n", argv[1]);
+		return -1;
+	}
+
+	yyin = input_file;
+
+
+	do {
+		yyparse();
+	} while (!feof(yyin));
+	return 0;
+}
