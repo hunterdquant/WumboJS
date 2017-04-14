@@ -4,6 +4,8 @@
 
 #include "sym_table.h"
 
+extern long int LINE_COUNT;
+
 sym_stack_t *init_stack(sym_table_t *t) {
     sym_stack_t *s = (sym_stack_t *)malloc(sizeof(sym_stack_t));
     s->scope = t;
@@ -36,7 +38,12 @@ sym_node_t *search_stack(sym_stack_t *s, char *sym) {
 }
 
 sym_table_t *init_table() {
-    return (sym_table_t*)calloc(1, sizeof(sym_table_t));
+    int i;
+    sym_table_t *tmp = (sym_table_t*) malloc(sizeof(sym_table_t));
+    for (i = 0; i < HASH_SIZE; i++) {
+        tmp->table[i] = NULL;
+    }
+    return tmp;
 }
 
 sym_node_t *table_put(sym_table_t *t, char *sym) {
@@ -56,7 +63,10 @@ sym_node_t *table_put(sym_table_t *t, char *sym) {
 sym_node_t *table_get(sym_table_t *t, char *sym) {
     int hash = hashpjw(sym);
     sym_node_t *cur = t->table[hash];
-    while (cur != NULL) {
+    if (!cur) {
+        panic("\nUnable to find symbol \"%s\". Line:%d\n", sym, LINE_COUNT);
+    }
+    while (cur->next != NULL) {
         if (strcmp(cur->sym, sym) == 1) {
             break;
         }

@@ -16,7 +16,7 @@ long int LINE_COUNT = 1;
 %}
 
 
-whitespace	[ \t]
+whitespace	[\t]
 id [a-zA-Z]+[a-zA-Z0-9]*
 inum [0-9]+
 rnum [0-9]+\.[0-9]+
@@ -124,7 +124,7 @@ mulop		 "*"|"/"|"and"
 				}
 {id}            { 
 					wprintf("[ID:%s]", yytext); 
-					yylval.sval = yytext;
+					yylval.sval = strdup(yytext);
 					return ID;
 				}
 {whitespace}    { ; }

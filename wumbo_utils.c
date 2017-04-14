@@ -31,12 +31,20 @@ op_type str2optype(char *s) {
 }
 
 void wprintf(const char *s, ...) {
+    #ifdef DEBUG
+        va_list args;
+        va_start(args, s);
+        vfprintf(stderr, s, args);
+        va_end(args);
+    #endif
+}
+
+void panic(const char *s, ...) {
     va_list args;
     va_start(args, s);
-    #ifndef DEBUG
-        vfprintf(stderr, s, args);
-    #endif
+    vfprintf(stderr, s, args);
     va_end(args);
+    exit(1);
 }
 
 void print_spaces(int spaces) {

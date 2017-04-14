@@ -43,5 +43,11 @@ struct stmt_list_s {
     struct stmt_list_s *next;
 };
 
+stmt_t *init_stmt(stmt_type);
+stmt_list_t *init_stmt_list(stmt_t *);
+
+void destroy_stmt(stmt_t *);
+void destroy_stmt_list(stmt_list_t *);
+
 void print_stmt_tree(stmt_t *, int);
 #endif

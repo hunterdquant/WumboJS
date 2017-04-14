@@ -6,5 +6,6 @@
 op_type str2optype(char *);
 void wprintf(const char *, ...);
 void print_spaces(int);
+void panic(const char *, ...);
 
 #endif

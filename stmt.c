@@ -5,11 +5,60 @@
 #include "exp_tree.h"
 #include "stmt.h"
 
+stmt_t *init_stmt(stmt_type type) {
+    stmt_t *tmp = (stmt_t *)malloc(sizeof(stmt_t));
+    tmp->type = type;
+    return tmp;
+}
+
+stmt_list_t *init_stmt_list(stmt_t *stmt) {
+    stmt_list_t *tmp = (stmt_list_t *)malloc(sizeof(stmt_list_t));
+    tmp->stmt = stmt;
+    return tmp;
+}
+
+void destroy_stmt(stmt_t *stmt) {
+    if (!stmt) {
+        return;
+    }
+    switch (stmt->type) {
+        case COMPOUND_STMT:
+            destroy_stmt_list(stmt->stmt.compound_stmt.body_stmt);
+            break;
+        case ASSIGNMENT_STMT:
+            destroy_exp_tree(stmt->stmt.assn_stmt.exp);
+            break;
+        case IF_STMT:
+            destroy_exp_tree(stmt->stmt.if_stmt.exp);
+            destroy_stmt(stmt->stmt.if_stmt.true_stmt);
+            destroy_stmt(stmt->stmt.if_stmt.false_stmt);
+            break;
+        case WHILE_STMT:
+            destroy_exp_tree(stmt->stmt.while_stmt.exp);
+            destroy_stmt(stmt->stmt.while_stmt.body_stmt);
+            break;
+        case FOR_STMT:
+            destroy_exp_tree(stmt->stmt.for_stmt.exp_bound);
+            destroy_stmt(stmt->stmt.for_stmt.assign_stmt);
+            destroy_stmt(stmt->stmt.for_stmt.body_stmt);
+            break;
+        case PROCEDURE_STMT:
+            destroy_exp_list(stmt->stmt.proc_stmt.exp_list);
+            break;
+    }
+    free(stmt);
+}
+
+void destroy_stmt_list(stmt_list_t *stmt_list) {
+    
+}
+
 void print_stmt_tree(stmt_t *stmt, int spaces) {
     if (!stmt) {
         return;
     }
     print_spaces(spaces);
+    wprintf("\n\n%d\n", PROCEDURE_STMT);
     switch (stmt->type) {
         case COMPOUND_STMT: {
             fprintf(stderr, "[BEGIN COMP STMT]\n");

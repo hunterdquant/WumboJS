@@ -5,11 +5,21 @@
 #define HASH_SIZE 211
 #define EOS '\0'
 
+typedef struct array_type_s {
+    int start;
+    int end;
+    sym_type type;
+} array_type_t;
+
 typedef struct node_s {
 
     char *sym;
     struct node_s *next;
-    sym_type type;
+    sym_type sym_type;
+    union {
+        array_type_t *array;
+        simple_type type;
+    };
     int offset;
 } sym_node_t;
 
