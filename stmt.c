@@ -58,7 +58,6 @@ void print_stmt_tree(stmt_t *stmt, int spaces) {
         return;
     }
     print_spaces(spaces);
-    wprintf("\n\n%d\n", PROCEDURE_STMT);
     switch (stmt->type) {
         case COMPOUND_STMT: {
             fprintf(stderr, "[BEGIN COMP STMT]\n");

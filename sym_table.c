@@ -6,7 +6,7 @@
 
 extern long int LINE_COUNT;
 
-sym_stack_t *init_stack(sym_table_t *t) {
+sym_stack_t *init_sym_stack(sym_table_t *t) {
     sym_stack_t *s = (sym_stack_t *)malloc(sizeof(sym_stack_t));
     s->scope = t;
     return s;
@@ -19,7 +19,7 @@ sym_stack_t *stack_pop(sym_stack_t *s) {
 }
 
 sym_stack_t *stack_push(sym_stack_t *s, sym_table_t *t) {
-    sym_stack_t *tmp = init_stack(t);
+    sym_stack_t *tmp = init_sym_stack(t);
     tmp->next = s;
     s = tmp;
     return s;
@@ -37,25 +37,26 @@ sym_node_t *search_stack(sym_stack_t *s, char *sym) {
     return n;
 }
 
-sym_table_t *init_table() {
+sym_table_t *init_sym_table() {
     int i;
     sym_table_t *tmp = (sym_table_t*) malloc(sizeof(sym_table_t));
+    tmp->offset = 0;
     for (i = 0; i < HASH_SIZE; i++) {
         tmp->table[i] = NULL;
     }
     return tmp;
 }
 
-sym_node_t *table_put(sym_table_t *t, char *sym) {
-    int hash = hashpjw(sym);
+sym_node_t *table_put(sym_table_t *t, sym_node_t *node) {
+    int hash = hashpjw(node->sym);
     sym_node_t *cur = t->table[hash];
     if (cur != NULL) {
         while (cur->next != NULL) {
             cur = cur->next;
         }
-        cur->next = init_node(sym);
+        cur->next = node;
     } else {
-        t->table[hash] = cur = init_node(sym);
+        t->table[hash] = cur = node;
     }
     return cur;
 }
@@ -75,38 +76,51 @@ sym_node_t *table_get(sym_table_t *t, char *sym) {
     return cur;
 }
 
-sym_node_t *init_node(char *sym) {
+sym_node_t *init_sym_node(char *sym, node_type ntype, void *type, int offset) {
     sym_node_t *n = (sym_node_t*)malloc(sizeof(sym_node_t));
     n->sym = sym;
+    n->offset = offset;
+    n->ntype = ntype;
+    switch (n->ntype) {
+        case PRIM_NODE:
+            n->dtype = (data_type_t *)type;
+            break;
+        case FUNC_NODE:
+            n->ftype = (func_type_t *)type;
+            break;
+        case PROC_NODE:
+            n->ptype = (proc_type_t *)type;
+            break;
+    }
     return n;
 }
 
-void free_node(sym_node_t *node) {
+void destroy_sym_node(sym_node_t *node) {
     if (node == NULL) {
         return;
     }
-    free_node(node->next);
+    destroy_sym_node(node->next);
     free(node);
 }
 
-void free_table(sym_table_t *table) {
+void destroy_sym_table(sym_table_t *table) {
     int i;
     if (table == NULL) {
         return;
     }
     for (i = 0; i < HASH_SIZE; i++) {
         if (table->table[i]) {
-            free_node(table->table[i]->next);
+            destroy_sym_node(table->table[i]->next);
         }
     }
     free(table);
 }
 
-void free_stack(sym_stack_t *stack) {
+void destroy_sym_stack(sym_stack_t *stack) {
     if (stack == NULL) {
         return;
     }
-    free_table(stack->scope);
+    destroy_sym_table(stack->scope);
     free(stack);
 }
 

@@ -5,17 +5,20 @@
   #include <stdio.h>
   #include <stdlib.h>
   #include <assert.h>
+  #include <string.h>
 
 
   #include "sym_table.h"
   #include "exp_tree.h"
   #include "defs.h"
   #include "stmt.h"
+  #include "decl.h"
 
 
   extern FILE *yyin;
   extern long int LINE_COUNT;
   sym_stack_t *sym_table;
+  long int label;
 %}
 
 %union {
@@ -29,6 +32,10 @@
 	exp_tree_t *exp_val;
 	exp_list_t *exp_list_val;
 	stmt_list_t *stmt_list_val;
+	id_list_t *id_list;
+	data_type_t *data_type;
+	data_type_list_t *data_type_list;
+	simple_type stype;
 }
 
 %token PROGRAM
@@ -60,7 +67,7 @@
 %token <opval> NOT
 
 
-%type <sym_stack_val> program
+%type <sym_stack_val> program;
 %type <stmt_val> statement;
 %type <stmt_val> procedure_statement;
 %type <stmt_val> compound_statement;
@@ -72,15 +79,27 @@
 %type <exp_val> simple_expression;
 %type <exp_list_val> expression_list;
 %type <sym_ref> variable;
+%type <id_list> identifier_list;
+%type <data_type> type;
+%type <stype> standard_type;
+%type <data_type_list> arguments;
+%type <data_type_list> parameter_list;
 //%type <stmt_list_val> statement_list;
-
 
 %%
 program:
 	{
-		sym_table = init_stack(init_table());
+		label = 0;
+		sym_table = init_sym_stack(init_sym_table());
 	}
 	PROGRAM ID '(' identifier_list ')' ';'
+	{
+		if (strcmp($3, "main")) {
+
+		} else {
+
+		}
+	}
 	declarations 
 	subprogram_declarations 
 	compound_statement 
@@ -88,33 +107,57 @@ program:
 	{ 
 		$$ = sym_table;
 		wprintf("\n");
-		print_stmt_tree($10, 0);
+		print_stmt_tree($11, 0);
 	}
 	;
 
 identifier_list: ID 
 	{
-		table_put(sym_table->scope, $1);
+		$$ = init_id_list($1);
 	}
 	| identifier_list ',' ID
 	{
-		table_put(sym_table->scope, $3);
+		id_list_t *tmp = init_id_list($3);
+		tmp->next = $1;
+		$$ = tmp;
 	}
 	;
 
 declarations: declarations VAR identifier_list ':' type ';' 
 	{
+		data_type_t *type = $5;
+		id_list_t *list = $3;
 
+		while (list) {
+			sym_node_t *node = init_sym_node(strdup(list->id), PRIM_NODE, $5, sym_table->scope->offset);
+			sym_table->scope->offset+=4;
+			table_put(sym_table->scope, node);
+			list = list->next;
+		}
 	}
 	| empty 
 	;
 
 type: standard_type
+	{
+		$$ = init_data_type(SIMPLE_SYM, (void *)$1);
+	}
 	| ARRAY '[' INUM DOTDOT INUM ']' OF standard_type
+	{
+		data_array_t *tmp = init_data_array($3, $5, $8);
+		$$ = init_data_type(ARRAY_SYM, (void *)tmp);
+	}
 	;
 	
 standard_type: INTEGER
+	{
+		$$ = INTEGER_TYPE;
+	}
 	| REAL
+	{
+		$$ = REAL_TYPE;
+	}
+	;
 
 subprogram_declarations: subprogram_declarations subprogram_declaration ';'
 	| empty
@@ -122,22 +165,86 @@ subprogram_declarations: subprogram_declarations subprogram_declaration ';'
 
 subprogram_declaration: subprogram_head declarations subprogram_declarations compound_statement;
 
-subprogram_head: FUNCTION ID arguments ':' standard_type ';'
+subprogram_head: FUNCTION ID 
 	{
-		table_put(sym_table->scope, $2);
+			sym_table = stack_push(sym_table, init_sym_table());
+	} 
+	arguments ':' standard_type ';'
+	{
+		sym_stack_t *tmp = stack_pop(sym_table);
+		func_type_t *func = init_func_type($4, $6);
+		sym_node_t *node = init_sym_node(strdup($2), FUNC_NODE, func, sym_table->scope->offset);
+		sym_table->scope->offset+=4;
+		table_put(sym_table->scope, node);
+		stack_push(sym_table, tmp->scope);
 	}
 	| PROCEDURE ID arguments ';'
 	{
-		table_put(sym_table->scope, $2);
+		sym_stack_t *tmp = stack_pop(sym_table);
+		proc_type_t *proc = init_proc_type($3);
+		sym_node_t *node = init_sym_node(strdup($2), PROC_NODE, proc, sym_table->scope->offset);
+		sym_table->scope->offset+=4;
+		table_put(sym_table->scope, node);
+		stack_push(sym_table, tmp->scope);
 	}
 	;
 
 arguments: '(' parameter_list ')'
+	{
+		$$ = $2;
+	}
 	| empty
+	{
+		$$ = NULL;
+	}
 	;
 
 parameter_list: identifier_list ':' type
+	{
+		data_type_t *type = $3;
+		id_list_t *list = $1;
+		while (list) {
+			sym_table->scope->offset-=4;
+			sym_node_t *node = init_sym_node(strdup(list->id), PRIM_NODE, type, sym_table->scope->offset);
+			table_put(sym_table->scope, node);
+			list = list->next;
+		}
+
+		list = $1;
+		data_type_list_t *tmp = init_data_type_list(type);
+		data_type_list_t *cur = tmp;
+		cur = tmp;
+		list = list->next;
+		while (list) {
+			cur->next = init_data_type_list(type);
+			cur = cur->next;
+			list = list->next;
+		}
+		$$ = tmp;
+	}
 	| parameter_list ';' identifier_list ':' type
+	{
+		data_type_t *type = $5;
+		id_list_t *list = $3;
+		while (list) {
+			sym_table->scope->offset-=4;
+			sym_node_t *node = init_sym_node(strdup(list->id), PRIM_NODE, type, sym_table->scope->offset);
+			table_put(sym_table->scope, node);
+			list = list->next;
+		}
+
+		list = $3;
+		data_type_list_t *tmp = init_data_type_list(type);
+		data_type_list_t *cur = tmp;
+		cur = tmp;
+		list = list->next;
+		while (list) {
+			cur->next = init_data_type_list(type);
+			cur = cur->next;
+			list = list->next;
+		}
+		$$ = tmp;
+	}
 	;
 
 compound_statement: BBEGIN optional_statements END
@@ -257,8 +364,6 @@ expression_list: expression
 expression: simple_expression
 	{
 		$$ = $1;
-		wprintf("\n");
-		print_exp_tree($$, 0);
 	}
 	| simple_expression RELOP simple_expression
 	{
