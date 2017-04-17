@@ -55,6 +55,7 @@ sym_node_t *table_put(sym_table_t *t, sym_node_t *node) {
             cur = cur->next;
         }
         cur->next = node;
+        cur = cur->next;
     } else {
         t->table[hash] = cur = node;
     }
@@ -65,10 +66,10 @@ sym_node_t *table_get(sym_table_t *t, char *sym) {
     int hash = hashpjw(sym);
     sym_node_t *cur = t->table[hash];
     if (!cur) {
-        panic("\nUnable to find symbol \"%s\". Line:%d\n", sym, LINE_COUNT);
+        return NULL;
     }
     while (cur->next != NULL) {
-        if (strcmp(cur->sym, sym) == 1) {
+        if (strcmp(cur->sym, sym) == 0) {
             break;
         }
         cur = cur->next;

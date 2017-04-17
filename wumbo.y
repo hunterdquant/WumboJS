@@ -19,6 +19,7 @@
   extern long int LINE_COUNT;
   sym_stack_t *sym_table;
   long int label;
+  FILE *wout;
 %}
 
 %union {
@@ -94,10 +95,30 @@ program:
 	}
 	PROGRAM ID '(' identifier_list ')' ';'
 	{
+		char *name;
 		if (strcmp($3, "main")) {
-
+			name = "main1";
 		} else {
-
+			name = $3;
+		}
+		proc_type_t *main = init_proc_type(init_data_type_list(init_data_type(SIMPLE_SYM, (void *)NULL)));
+		sym_node_t *node = init_sym_node(name, PROC_NODE, main, 0);
+		table_put(sym_table->scope, node);
+		id_list_t *id_list = $5;
+		int in, out = 0;
+		while (id_list) {
+			if (!in && strcmp(id_list->id, "input")) {
+				in = !in;
+				proc_type_t *input = init_proc_type(init_data_type_list(init_data_type(SIMPLE_SYM, (void *)INTEGER_TYPE)));
+				sym_node_t *node = init_sym_node("read", PROC_NODE, input, 0);
+				table_put(sym_table->scope, node);
+			} else if (!out && strcmp(id_list->id, "output")) {
+				out = !out;
+				proc_type_t *output = init_proc_type(init_data_type_list(init_data_type(SIMPLE_SYM, (void *)INTEGER_TYPE)));
+				sym_node_t *node = init_sym_node("output", PROC_NODE, output, 0);
+				table_put(sym_table->scope, node);
+			}
+			id_list = id_list->next;
 		}
 	}
 	declarations 
@@ -108,6 +129,7 @@ program:
 		$$ = sym_table;
 		wprintf("\n");
 		print_stmt_tree($11, 0);
+		stack_pop(sym_table);
 	}
 	;
 
@@ -163,7 +185,11 @@ subprogram_declarations: subprogram_declarations subprogram_declaration ';'
 	| empty
 	;
 
-subprogram_declaration: subprogram_head declarations subprogram_declarations compound_statement;
+subprogram_declaration: subprogram_head declarations subprogram_declarations compound_statement
+	{
+		print_stmt_tree($4, 0);
+		stack_pop(sym_table);
+	};
 
 subprogram_head: FUNCTION ID 
 	{
@@ -351,7 +377,7 @@ expression_list: expression
 	}
 	| expression_list ',' expression
 	{
-		exp_list_t *tmp = init_exp_list(init_exp_tree(NULL));
+		exp_list_t *tmp = init_exp_list($3);
 		tmp->next = $1;
 		$$ = tmp;
 	}
@@ -367,7 +393,10 @@ expression: simple_expression
 	}
 	| simple_expression RELOP simple_expression
 	{
-		$$ = init_exp_tree(NULL);
+		exp_node_t *node = init_exp_node(OP_EXP, (void *)$2);
+		$$ = init_exp_tree(node);
+		$$->right = $1;
+		$$->left = $3;
 	}
 	;
 
@@ -452,7 +481,7 @@ empty:  ;
 %%
 
 int main(int argc, char ** argv) {
-	if (argc != 2) {
+	if (argc < 2) {
 		fprintf(stderr, "USAGE: ./wumbo <inputfile>");
 		return -1;
 	}
@@ -464,8 +493,13 @@ int main(int argc, char ** argv) {
 		return -1;
 	}
 
-	yyin = input_file;
+	if (argc == 3) {
+		wout = fopen(argv[2], "w");
+	} else {
+		wout = fopen("org.asm", "w");
+	}
 
+	yyin = input_file;
 
 	do {
 		yyparse();

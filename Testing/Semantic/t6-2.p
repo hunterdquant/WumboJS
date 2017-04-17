@@ -7,6 +7,10 @@ program main( input, output );
   begin
   end;
 begin
+  while 7+7 do
+  begin
+    b := 7
+  end;
   boo(y,10);
   boo(b,y,b)
 end.

@@ -26,6 +26,7 @@ addop		 "+"|"-"|"or"
 mulop		 "*"|"/"|"and"
 
 %%
+
 "program"		{
 					wprintf("[PROGRAM]");
 					return PROGRAM;
@@ -138,7 +139,9 @@ mulop		 "*"|"/"|"and"
 					yylval.fval = atof(yytext);
 					return RNUM;
 				}
-[(][*][^*]*[*]+([^*/][^*]*[*]+)*[)]       {;}
+[(][*][^*]*[*]+([^*)][^*]*[*]+)*[)]       {;}
+
+
 [//]			{;}
 \n              { 
 					LINE_COUNT++; 

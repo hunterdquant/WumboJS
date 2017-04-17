@@ -53,6 +53,9 @@ begin
   if ( c[x] * 6 < 7 + moo( y ) and a > d[c[x]] ) then
   begin
 	c[moo(foo(8,9.10,11.0)) + c[12]] := moo( c[y - 1] )
+  end
+  else
+  begin
   end;
 
   (* PROCEDURE call: correct arguments, not used as expression *)
