@@ -44,7 +44,6 @@ data_array_t *init_data_array(int, int, simple_type);
 func_type_t *init_func_type(data_type_list_t *, ret_type);
 proc_type_t *init_proc_type(data_type_list_t *);
 
-
 void destroy_data_type_list(data_type_list_t *);
 void destroy_data_type(data_type_t *);
 void destroy_id_list(id_list_t *);

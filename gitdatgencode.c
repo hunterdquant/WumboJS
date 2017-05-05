@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 f();
 
 main() {
@@ -5,6 +7,7 @@ main() {
 }
 
 f() {
-
+	int y;
+	scanf("%d", &y);
 }
 

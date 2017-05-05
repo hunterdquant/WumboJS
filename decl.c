@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "decl.h"
 #include "defs.h"
@@ -26,6 +27,7 @@ data_array_t *init_data_array(int start, int end, simple_type stype) {
 
 data_type_t *init_data_type(sym_type type, void *val) {
     data_type_t *tmp = (data_type_t *)malloc(sizeof(data_type_t));
+    tmp->type = type;
     switch (type) {
         case SIMPLE_SYM: 
             tmp->stype = (simple_type)val;
@@ -40,12 +42,14 @@ data_type_t *init_data_type(sym_type type, void *val) {
 
 id_list_t *init_id_list(char *id) {
     id_list_t *tmp = (id_list_t *)malloc(sizeof(id_list_t));
-    tmp->id = id;
+    tmp->next = NULL;
+    tmp->id = strdup(id);
     return tmp;
 }
 
 data_type_list_t *init_data_type_list(data_type_t *type) {
     data_type_list_t *tmp = (data_type_list_t *)malloc(sizeof(data_type_list_t));
+    tmp->next = NULL;
     tmp->type = type;
     return tmp;
 }

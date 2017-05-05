@@ -45,6 +45,7 @@ struct stmt_list_s {
 
 stmt_t *init_stmt(stmt_type);
 stmt_list_t *init_stmt_list(stmt_t *);
+int semantic_check_body(sym_stack_t *, sym_node_t *, stmt_t *);
 
 void destroy_stmt(stmt_t *);
 void destroy_stmt_list(stmt_list_t *);

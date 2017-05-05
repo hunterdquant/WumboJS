@@ -13,12 +13,12 @@
   #include "defs.h"
   #include "stmt.h"
   #include "decl.h"
+  #include "gencode.h"
 
 
   extern FILE *yyin;
   extern long int LINE_COUNT;
   sym_stack_t *sym_table;
-  long int label;
   FILE *wout;
 %}
 
@@ -70,6 +70,8 @@
 
 %type <sym_stack_val> program;
 %type <stmt_val> statement;
+%type <stmt_val> matched_statement;
+%type <stmt_val> unmatched_statement;
 %type <stmt_val> procedure_statement;
 %type <stmt_val> compound_statement;
 %type <stmt_list_val> optional_statements;
@@ -89,47 +91,67 @@
 
 %%
 program:
-	{
-		label = 0;
-		sym_table = init_sym_stack(init_sym_table());
-	}
 	PROGRAM ID '(' identifier_list ')' ';'
 	{
 		char *name;
-		if (strcmp($3, "main")) {
+		if (!strcmp($2, "main")) {
 			name = "main1";
 		} else {
-			name = $3;
+			name = $2;
 		}
+		sym_table = init_sym_stack(init_sym_table(), NULL, 0);
+		gen_code_prelude(wout, "main");
+		gen_code_main(wout, name);
+		gen_code_prologue(wout, "main");
+
 		proc_type_t *main = init_proc_type(init_data_type_list(init_data_type(SIMPLE_SYM, (void *)NULL)));
 		sym_node_t *node = init_sym_node(name, PROC_NODE, main, 0);
 		table_put(sym_table->scope, node);
-		id_list_t *id_list = $5;
-		int in, out = 0;
+		sym_table->sym_ref = node;
+		id_list_t *id_list = $4;
+		int in = 0, out = 0;
 		while (id_list) {
 			if (!in && strcmp(id_list->id, "input")) {
 				in = !in;
 				proc_type_t *input = init_proc_type(init_data_type_list(init_data_type(SIMPLE_SYM, (void *)INTEGER_TYPE)));
 				sym_node_t *node = init_sym_node("read", PROC_NODE, input, 0);
 				table_put(sym_table->scope, node);
+				gen_code_read_label(wout);
 			} else if (!out && strcmp(id_list->id, "output")) {
 				out = !out;
 				proc_type_t *output = init_proc_type(init_data_type_list(init_data_type(SIMPLE_SYM, (void *)INTEGER_TYPE)));
-				sym_node_t *node = init_sym_node("output", PROC_NODE, output, 0);
+				sym_node_t *node = init_sym_node("write", PROC_NODE, output, 0);
 				table_put(sym_table->scope, node);
+				gen_code_write_label(wout);
 			}
 			id_list = id_list->next;
 		}
+		destroy_id_list($4);
 	}
 	declarations 
 	subprogram_declarations 
 	compound_statement 
 	'.'
-	{ 
+	{
+		char *name;
+		if (!strcmp($2, "main")) {
+			name = "main1";
+		} else {
+			name = $2;
+		}
+
 		$$ = sym_table;
 		wprintf("\n");
-		print_stmt_tree($11, 0);
-		stack_pop(sym_table);
+		print_stmt_tree($10, 0);
+		semantic_check_body(sym_table, sym_table->sym_ref, $10);
+		gen_code_prelude(wout, name);
+		gen_code_func_begin(wout, name);
+		gen_code_compound_stmt(wout, $10);
+		gen_code_func_end(wout);
+		gen_code_prologue(wout, name);
+		gen_code_end(wout);
+		destroy_stmt($10);
+		destroy_sym_stack(sym_table);
 	}
 	;
 
@@ -143,6 +165,10 @@ identifier_list: ID
 		tmp->next = $1;
 		$$ = tmp;
 	}
+	| empty
+	{
+		$$ = NULL;
+	}
 	;
 
 declarations: declarations VAR identifier_list ':' type ';' 
@@ -151,11 +177,15 @@ declarations: declarations VAR identifier_list ':' type ';'
 		id_list_t *list = $3;
 
 		while (list) {
-			sym_node_t *node = init_sym_node(strdup(list->id), PRIM_NODE, $5, sym_table->scope->offset);
+			if (table_get(sym_table->scope, list->id)) {
+				panic("\nSymbol, %s, is defined more than once at line number %d.\n", list->id, LINE_COUNT);
+			}
+			sym_node_t *node = init_sym_node(list->id, PRIM_NODE, $5, sym_table->scope->offset);
 			sym_table->scope->offset+=4;
 			table_put(sym_table->scope, node);
 			list = list->next;
 		}
+		destroy_id_list($3);
 	}
 	| empty 
 	;
@@ -187,31 +217,44 @@ subprogram_declarations: subprogram_declarations subprogram_declaration ';'
 
 subprogram_declaration: subprogram_head declarations subprogram_declarations compound_statement
 	{
+		int check = semantic_check_body(sym_table, sym_table->sym_ref, $4);
+		if (!check) {
+			panic("\nFunction is missing a return statement, line %d\n", LINE_COUNT);
+		}
 		print_stmt_tree($4, 0);
-		stack_pop(sym_table);
+		destroy_sym_stack(stack_pop(&sym_table));
+		destroy_stmt($4);
 	};
 
 subprogram_head: FUNCTION ID 
 	{
-			sym_table = stack_push(sym_table, init_sym_table());
+			if (table_get(sym_table->scope, $2)) {
+				panic("\nFunction or procedure with name, %s, already defined. Line %d\n", $2, LINE_COUNT);
+			}
+			sym_table = stack_push(sym_table, init_sym_table(), NULL);
 	} 
 	arguments ':' standard_type ';'
 	{
-		sym_stack_t *tmp = stack_pop(sym_table);
+		sym_stack_t *tmp = stack_pop(&sym_table);
 		func_type_t *func = init_func_type($4, $6);
 		sym_node_t *node = init_sym_node(strdup($2), FUNC_NODE, func, sym_table->scope->offset);
-		sym_table->scope->offset+=4;
 		table_put(sym_table->scope, node);
-		stack_push(sym_table, tmp->scope);
+		sym_table = stack_push(sym_table, tmp->scope, table_put(sym_table->scope, node));
 	}
-	| PROCEDURE ID arguments ';'
+	| PROCEDURE ID
 	{
-		sym_stack_t *tmp = stack_pop(sym_table);
-		proc_type_t *proc = init_proc_type($3);
+			if (table_get(sym_table->scope, $2)) {
+				panic("\nFunction or procedure with name, %s, already defined. Line %d\n", $2, LINE_COUNT);
+			}
+			sym_table = stack_push(sym_table, init_sym_table(), NULL);
+
+	} 
+	arguments ';'
+	{
+		sym_stack_t *tmp = stack_pop(&sym_table);
+		proc_type_t *proc = init_proc_type($4);
 		sym_node_t *node = init_sym_node(strdup($2), PROC_NODE, proc, sym_table->scope->offset);
-		sym_table->scope->offset+=4;
-		table_put(sym_table->scope, node);
-		stack_push(sym_table, tmp->scope);
+		sym_table = stack_push(sym_table, tmp->scope, table_put(sym_table->scope, node));
 	}
 	;
 
@@ -231,7 +274,7 @@ parameter_list: identifier_list ':' type
 		id_list_t *list = $1;
 		while (list) {
 			sym_table->scope->offset-=4;
-			sym_node_t *node = init_sym_node(strdup(list->id), PRIM_NODE, type, sym_table->scope->offset);
+			sym_node_t *node = init_sym_node(list->id, PRIM_NODE, type, sym_table->scope->offset);
 			table_put(sym_table->scope, node);
 			list = list->next;
 		}
@@ -239,7 +282,6 @@ parameter_list: identifier_list ':' type
 		list = $1;
 		data_type_list_t *tmp = init_data_type_list(type);
 		data_type_list_t *cur = tmp;
-		cur = tmp;
 		list = list->next;
 		while (list) {
 			cur->next = init_data_type_list(type);
@@ -253,7 +295,6 @@ parameter_list: identifier_list ':' type
 		data_type_t *type = $5;
 		id_list_t *list = $3;
 		while (list) {
-			sym_table->scope->offset-=4;
 			sym_node_t *node = init_sym_node(strdup(list->id), PRIM_NODE, type, sym_table->scope->offset);
 			table_put(sym_table->scope, node);
 			list = list->next;
@@ -262,14 +303,19 @@ parameter_list: identifier_list ':' type
 		list = $3;
 		data_type_list_t *tmp = init_data_type_list(type);
 		data_type_list_t *cur = tmp;
-		cur = tmp;
 		list = list->next;
 		while (list) {
 			cur->next = init_data_type_list(type);
 			cur = cur->next;
 			list = list->next;
 		}
-		$$ = tmp;
+		data_type_list_t *tmp2 = $1;
+		cur = tmp2;
+		while (cur->next != NULL) {
+			cur = cur->next;
+		}
+		cur->next = tmp;
+		$$ = tmp2;
 	}
 	;
 
@@ -302,7 +348,10 @@ statement_list: statement
 	}
 	;
 
-statement: procedure_statement 
+statement: matched_statement {$$ = $1;};
+		| unmatched_statement {$$ = $1;};
+
+matched_statement: procedure_statement 
 	{
 		$$ = $1;
 	}
@@ -317,7 +366,7 @@ statement: procedure_statement
 	{
 		$$ = $1;
 	}
-	| IF expression THEN statement ELSE statement
+	| IF expression THEN matched_statement ELSE matched_statement
 	{
 		stmt_t *tmp = init_stmt(IF_STMT);
 		tmp->stmt.if_stmt.exp = $2;
@@ -345,27 +394,67 @@ statement: procedure_statement
 	}
 	;
 
+unmatched_statement:
+	IF expression THEN statement
+	{
+		stmt_t *tmp = init_stmt(IF_STMT);
+		ret_type t = get_exp_type($2);
+		tmp->stmt.if_stmt.exp = $2;
+		tmp->stmt.if_stmt.true_stmt = $4;
+		tmp->stmt.if_stmt.false_stmt = NULL;
+		$$ = tmp;
+	}
+	| IF expression THEN matched_statement ELSE unmatched_statement
+	{
+		stmt_t *tmp = init_stmt(IF_STMT);
+		tmp->stmt.if_stmt.exp = $2;
+		tmp->stmt.if_stmt.true_stmt = $4;
+		tmp->stmt.if_stmt.false_stmt = $6;
+		$$ = tmp;
+	}
+
 variable: ID
 	{
-		$$ = search_stack(sym_table, $1);
+		sym_node_t *ref = search_stack(sym_table, $1);
+		if (!ref) {
+			panic("\nError \"%s\" not defined, line %d\n", $1, LINE_COUNT);
+		}
+		$$ = ref;
 	}
 	| ID '[' expression ']'
 	{
-		$$ = search_stack(sym_table, $1);
+		sym_node_t *ref = search_stack(sym_table, $1);
+		ret_type t = get_exp_type($3);
+		if (!ref) {
+			panic("\nError \"%s\" not defined, line %d\n", $1, LINE_COUNT);
+		}
+		if (t != INTEGER_RET) {
+			panic("\nError ARRAY must be indexed using INTEGER type, line %d\n", LINE_COUNT);
+		}
+		$$ = ref;
 	}
 	;
 
 procedure_statement: ID 
 	{
 		stmt_t *tmp = init_stmt(PROCEDURE_STMT);
-		tmp->stmt.proc_stmt.sym_ref = search_stack(sym_table, $1);
+		sym_node_t *ref = search_stack(sym_table, $1);
+		wprintf("\n%s\n", ref->sym);
+		if (!ref) {
+			panic("\nProcedure with ID \"%s\" is not visable in this scope, line %d\n", $1, LINE_COUNT);
+		}
+		tmp->stmt.proc_stmt.sym_ref = ref;
 		tmp->stmt.proc_stmt.exp_list = NULL;
 		$$ = tmp;
 	}
 	| ID '(' expression_list ')'
 	{
 		stmt_t *tmp = init_stmt(PROCEDURE_STMT);
-		tmp->stmt.proc_stmt.sym_ref = search_stack(sym_table, $1);
+		sym_node_t *ref = search_stack(sym_table, $1);
+		if (!ref) {
+			panic("\nProcedure with ID \"%s\" is not visable in this scope, line %d\n", $1, LINE_COUNT);
+		}
+		tmp->stmt.proc_stmt.sym_ref = ref;
 		tmp->stmt.proc_stmt.exp_list = $3;
 		$$ = tmp;
 	}
@@ -440,8 +529,20 @@ factor: ID
 	| ID '(' expression_list ')' 
 	{
 		sym_node_t *ref = search_stack(sym_table, $1);
+		if (ref->ntype == PROC_NODE) {
+			panic("\nProcedures have no return value and connot be used in expressions, line %d\n", LINE_COUNT);
+		}
 		func_exp_t *func = init_func_exp(ref, $3);
 		exp_node_t *node = init_exp_node(FUNC_EXP, (void *)func);
+		exp_list_t *exp_list = $3;
+		data_type_list_t *dt_list = ref->ftype->types;
+		while (exp_list && dt_list) {
+			exp_list = exp_list->next;
+			dt_list = dt_list->next;
+		}
+		if ((!dt_list && exp_list) || (dt_list && exp_list)) {
+			panic("\nFunction, %s, does not have the required number of arguments, line %d\n", $1, LINE_COUNT);
+		}
 		$$ = init_exp_tree(node);
 	}
 	| ID '[' expression ']'
@@ -449,6 +550,13 @@ factor: ID
 		sym_node_t *ref = search_stack(sym_table, $1);
 		array_exp_t *array = init_array_exp(ref, $3);
 		exp_node_t *node = init_exp_node(ARRAY_EXP, (void *)array);
+		ret_type t = get_exp_type($3);
+		if (!ref) {
+			panic("\nError \"%s\" not defined, line %d\n", $1, LINE_COUNT);
+		}
+		if (t != INTEGER_RET) {
+			panic("\nError ARRAY must be indexed using INTEGER type, line %d\n", LINE_COUNT);
+		}
 		$$ = init_exp_tree(node);
 	}
 	| INUM
@@ -482,7 +590,7 @@ empty:  ;
 
 int main(int argc, char ** argv) {
 	if (argc < 2) {
-		fprintf(stderr, "USAGE: ./wumbo <inputfile>");
+		fprintf(stderr, "USAGE: ./wumbo <inputfile> <outputfile>");
 		return -1;
 	}
 	
@@ -495,10 +603,11 @@ int main(int argc, char ** argv) {
 
 	if (argc == 3) {
 		wout = fopen(argv[2], "w");
+		gen_code_begin(wout, argv[1]);
 	} else {
-		wout = fopen("org.asm", "w");
+		wout = fopen("out.S", "w");
+		gen_code_begin(wout, argv[1]);
 	}
-
 	yyin = input_file;
 
 	do {

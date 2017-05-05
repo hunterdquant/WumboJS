@@ -43,7 +43,7 @@ void wprintf(const char *s, ...) {
 void wfprintf(FILE *f, const char *s, ...) {
     va_list args;
     va_start(args, s);
-    fprintf(f, s, args);
+    vfprintf(f, s, args);
     va_end(args);
 }
 

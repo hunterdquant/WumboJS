@@ -9,7 +9,7 @@ typedef enum {SIMPLE_SYM, ARRAY_SYM} sym_type;
 typedef enum {PRIM_NODE, FUNC_NODE, PROC_NODE} node_type;
 typedef enum {REAL_RET, INTEGER_RET, BOOL_RET} ret_type;
 
-#define W_TYPE_ERROR -1;
-#define W_ALREADY_DEFINED_ERROR -2;
+#define W_TYPE_ERROR -1
+#define W_ALREADY_DEFINED_ERROR -2
 
 #endif

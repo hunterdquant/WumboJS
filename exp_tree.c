@@ -99,27 +99,24 @@ ret_type get_exp_type(exp_tree_t *tree) {
         if (tree->left && tree->right) {
             left_ret = get_exp_type(tree->left);
             right_ret = get_exp_type(tree->right);
-            switch (tree->node->type) {
+            switch (tree->node->op) {
                 case ADD_OP:
                 case SUB_OP:
                 case MUL_OP:
                 case DIV_OP:
-                if (left_ret == right_ret) {
-                        return left_ret;
-                }
+                    if (left_ret == right_ret) {
+                            return left_ret;
+                    }
                 case EQ_OP:
                 case NEQ_OP:
-                    if (left_ret == right_ret) {
-                        return BOOL_RET;
-                    }
                 case L_OP:
                 case G_OP:
                 case LE_OP:
                 case GE_OP:
-                    if ((left_ret == INTEGER_RET && right_ret == INTEGER_RET) ||
-                        (left_ret == REAL_RET && right_ret == REAL_RET)) {
+                    if (left_ret == right_ret) {
                         return BOOL_RET;
                     }
+                    break;
                 case NOT_OP:
                     if (right_ret == BOOL_RET) {
                         return BOOL_RET;
@@ -133,11 +130,32 @@ ret_type get_exp_type(exp_tree_t *tree) {
             return right_ret;
         }
         return W_TYPE_ERROR;
-    } else if (tree->node->type == INTEGER_EXP || tree->node->type == REAL_EXP){
+    } else {
         if (tree->node->type == INTEGER_EXP) {
             return INTEGER_RET;
         } else if (tree->node->type == REAL_EXP) {
             return REAL_RET;
+        } else if (tree->node->type == FUNC_EXP) {
+            if (tree->node->func_exp->sym_ref->ftype->rtype == INTEGER_RET) {
+                return INTEGER_RET;
+            } else if (tree->node->func_exp->sym_ref->ftype->rtype == REAL_RET) {
+                return REAL_RET;
+            }
+        } else if (tree->node->type == VAR_EXP) {
+            if (tree->node->sym_ref->dtype->stype == INTEGER_TYPE) {
+                return INTEGER_RET;
+            } else if (tree->node->sym_ref->dtype->stype == REAL_TYPE) {
+                return REAL_RET;
+            }
+        } else if (tree->node->type == ARRAY_EXP) {
+            if (tree->node->array_exp->sym_ref->dtype->type != ARRAY_SYM) {
+                panic("\nVariable, %s, is not declared as an array in this scope, line %d\n", tree->node->array_exp->sym_ref->sym, LINE_COUNT);
+            }
+            if (tree->node->array_exp->sym_ref->dtype->arr->stype == INTEGER_TYPE) {
+                return INTEGER_RET;
+            } else if (tree->node->array_exp->sym_ref->dtype->arr->stype == REAL_TYPE) {
+                return REAL_RET;
+            }
         }
     }
     return W_TYPE_ERROR;
@@ -170,7 +188,7 @@ exp_node_t *init_exp_node(exp_type type, void *val) {
 }
 
 exp_tree_t *init_exp_tree(exp_node_t *node) {
-    exp_tree_t * tmp = (exp_tree_t *) malloc(sizeof(exp_tree_t));
+    exp_tree_t *tmp = (exp_tree_t *)malloc(sizeof(exp_tree_t));
     tmp->node = node;
     tmp->left = NULL;
     tmp->right = NULL;

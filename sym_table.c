@@ -6,20 +6,24 @@
 
 extern long int LINE_COUNT;
 
-sym_stack_t *init_sym_stack(sym_table_t *t) {
+sym_stack_t *init_sym_stack(sym_table_t *t, sym_node_t *ref, int depth) {
     sym_stack_t *s = (sym_stack_t *)malloc(sizeof(sym_stack_t));
     s->scope = t;
+    s->next = NULL;
+    s->sym_ref = ref;
+    s->depth = depth;
     return s;
 }
 
-sym_stack_t *stack_pop(sym_stack_t *s) {
-    sym_stack_t *tmp = s;
-    s = s->next;
+sym_stack_t *stack_pop(sym_stack_t **s) {
+    sym_stack_t *tmp = (*s);
+    (*s) = (*s)->next;
+    tmp->next = NULL;
     return tmp;
 }
 
-sym_stack_t *stack_push(sym_stack_t *s, sym_table_t *t) {
-    sym_stack_t *tmp = init_sym_stack(t);
+sym_stack_t *stack_push(sym_stack_t *s, sym_table_t *t, sym_node_t *ref) {
+    sym_stack_t *tmp = init_sym_stack(t, ref, s->depth+1);
     tmp->next = s;
     s = tmp;
     return s;
@@ -31,6 +35,21 @@ sym_node_t *search_stack(sym_stack_t *s, char *sym) {
     while ((n = table_get(cur->scope, sym)) == NULL) {
         if (cur->next == NULL) {
             break;
+        }
+        cur = cur->next;
+    }
+    return n;
+}
+
+sym_node_t *search_stack_func(sym_stack_t *s, char *sym) {
+    sym_stack_t *cur = s;
+    sym_node_t *n = NULL;
+    while ((n = table_get(cur->scope, sym)) == NULL) {
+        if (cur->next == NULL) {
+            break;
+        }
+        if (cur->sym_ref->ntype == FUNC_NODE) {
+            return NULL;
         }
         cur = cur->next;
     }
@@ -79,7 +98,8 @@ sym_node_t *table_get(sym_table_t *t, char *sym) {
 
 sym_node_t *init_sym_node(char *sym, node_type ntype, void *type, int offset) {
     sym_node_t *n = (sym_node_t*)malloc(sizeof(sym_node_t));
-    n->sym = sym;
+    n->next = NULL;
+    n->sym = strdup(sym);
     n->offset = offset;
     n->ntype = ntype;
     switch (n->ntype) {

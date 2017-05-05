@@ -6,11 +6,6 @@
 #define HASH_SIZE 211
 #define EOS '\0'
 
-typedef struct array_type_s {
-    int start;
-    int end;
-    sym_type type;
-} array_type_t;
 
 typedef struct node_s {
     char *sym;
@@ -32,13 +27,16 @@ typedef struct table_s {
 typedef struct stack_s {
     sym_table_t *scope;
     struct stack_s *next;
+    sym_node_t *sym_ref;
+    int depth;
 } sym_stack_t;
 
 sym_node_t *init_sym_node(char *, node_type, void *, int);
-sym_stack_t *init_sym_stack(sym_table_t *);
-sym_stack_t *stack_pop(sym_stack_t *);
-sym_stack_t *stack_push(sym_stack_t *, sym_table_t *);
+sym_stack_t *init_sym_stack(sym_table_t *, sym_node_t *, int);
+sym_stack_t *stack_pop(sym_stack_t **);
+sym_stack_t *stack_push(sym_stack_t *, sym_table_t *, sym_node_t *);
 sym_node_t *search_stack(sym_stack_t *, char *);
+sym_node_t *search_stack_func(sym_stack_t *, char *);
 
 sym_table_t *init_sym_table();
 sym_node_t *table_put(sym_table_t *, sym_node_t *);
