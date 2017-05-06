@@ -70,6 +70,9 @@ sym_node_t *table_put(sym_table_t *t, sym_node_t *node) {
     int hash = hashpjw(node->sym);
     sym_node_t *cur = t->table[hash];
     if (cur != NULL) {
+        if (node == cur) {
+            return node;
+        }
         while (cur->next != NULL) {
             cur = cur->next;
         }
@@ -131,7 +134,7 @@ void destroy_sym_table(sym_table_t *table) {
     }
     for (i = 0; i < HASH_SIZE; i++) {
         if (table->table[i]) {
-            destroy_sym_node(table->table[i]->next);
+            destroy_sym_node(table->table[i]);
         }
     }
     free(table);

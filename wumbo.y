@@ -93,16 +93,9 @@
 program:
 	PROGRAM ID '(' identifier_list ')' ';'
 	{
-		char *name;
-		if (!strcmp($2, "main")) {
-			name = "main1";
-		} else {
-			name = $2;
-		}
+		char *name = $2;
 		sym_table = init_sym_stack(init_sym_table(), NULL, 0);
-		gen_code_prelude(wout, "main");
 		gen_code_main(wout, name);
-		gen_code_prologue(wout, "main");
 
 		proc_type_t *main = init_proc_type(init_data_type_list(init_data_type(SIMPLE_SYM, (void *)NULL)));
 		sym_node_t *node = init_sym_node(name, PROC_NODE, main, 0);
@@ -116,13 +109,11 @@ program:
 				proc_type_t *input = init_proc_type(init_data_type_list(init_data_type(SIMPLE_SYM, (void *)INTEGER_TYPE)));
 				sym_node_t *node = init_sym_node("read", PROC_NODE, input, 0);
 				table_put(sym_table->scope, node);
-				gen_code_read_label(wout);
 			} else if (!out && strcmp(id_list->id, "output")) {
 				out = !out;
 				proc_type_t *output = init_proc_type(init_data_type_list(init_data_type(SIMPLE_SYM, (void *)INTEGER_TYPE)));
 				sym_node_t *node = init_sym_node("write", PROC_NODE, output, 0);
 				table_put(sym_table->scope, node);
-				gen_code_write_label(wout);
 			}
 			id_list = id_list->next;
 		}
@@ -133,23 +124,14 @@ program:
 	compound_statement 
 	'.'
 	{
-		char *name;
-		if (!strcmp($2, "main")) {
-			name = "main1";
-		} else {
-			name = $2;
-		}
+		char *name = $2;
 
 		$$ = sym_table;
 		wprintf("\n");
 		print_stmt_tree($10, 0);
 		semantic_check_body(sym_table, sym_table->sym_ref, $10);
-		gen_code_prelude(wout, name);
-		gen_code_func_begin(wout, name);
-		gen_code_compound_stmt(wout, $10);
-		gen_code_func_end(wout);
-		gen_code_prologue(wout, name);
-		gen_code_end(wout);
+		gen_code_stmt(wout, $10);
+		gen_code_end_main(wout);
 		destroy_stmt($10);
 		destroy_sym_stack(sym_table);
 	}
@@ -161,9 +143,12 @@ identifier_list: ID
 	}
 	| identifier_list ',' ID
 	{
-		id_list_t *tmp = init_id_list($3);
-		tmp->next = $1;
-		$$ = tmp;
+		id_list_t *tmp = $1;
+		while (tmp->next) {
+			tmp = tmp->next;
+		}
+		tmp->next = init_id_list($3);
+		$$ = $1;
 	}
 	| empty
 	{
@@ -185,6 +170,7 @@ declarations: declarations VAR identifier_list ':' type ';'
 			table_put(sym_table->scope, node);
 			list = list->next;
 		}
+		gen_code_variable_decl(wout, $3);
 		destroy_id_list($3);
 	}
 	| empty 
@@ -222,6 +208,8 @@ subprogram_declaration: subprogram_head declarations subprogram_declarations com
 			panic("\nFunction is missing a return statement, line %d\n", LINE_COUNT);
 		}
 		print_stmt_tree($4, 0);
+		gen_code_stmt(wout, $4);
+		gen_code_func_end(wout);
 		destroy_sym_stack(stack_pop(&sym_table));
 		destroy_stmt($4);
 	};
@@ -232,6 +220,7 @@ subprogram_head: FUNCTION ID
 				panic("\nFunction or procedure with name, %s, already defined. Line %d\n", $2, LINE_COUNT);
 			}
 			sym_table = stack_push(sym_table, init_sym_table(), NULL);
+			gen_code_func_begin1(wout, $2);
 	} 
 	arguments ':' standard_type ';'
 	{
@@ -240,14 +229,15 @@ subprogram_head: FUNCTION ID
 		sym_node_t *node = init_sym_node(strdup($2), FUNC_NODE, func, sym_table->scope->offset);
 		table_put(sym_table->scope, node);
 		sym_table = stack_push(sym_table, tmp->scope, table_put(sym_table->scope, node));
+		gen_code_func_begin2(wout);
 	}
 	| PROCEDURE ID
 	{
-			if (table_get(sym_table->scope, $2)) {
-				panic("\nFunction or procedure with name, %s, already defined. Line %d\n", $2, LINE_COUNT);
-			}
-			sym_table = stack_push(sym_table, init_sym_table(), NULL);
-
+		if (table_get(sym_table->scope, $2)) {
+			panic("\nFunction or procedure with name, %s, already defined. Line %d\n", $2, LINE_COUNT);
+		}
+		sym_table = stack_push(sym_table, init_sym_table(), NULL);
+		gen_code_func_begin1(wout, $2);
 	} 
 	arguments ';'
 	{
@@ -255,6 +245,7 @@ subprogram_head: FUNCTION ID
 		proc_type_t *proc = init_proc_type($4);
 		sym_node_t *node = init_sym_node(strdup($2), PROC_NODE, proc, sym_table->scope->offset);
 		sym_table = stack_push(sym_table, tmp->scope, table_put(sym_table->scope, node));
+		gen_code_func_begin2(wout);
 	}
 	;
 
@@ -288,12 +279,16 @@ parameter_list: identifier_list ':' type
 			cur = cur->next;
 			list = list->next;
 		}
+		gen_code_identifier_list(wout, $1);
 		$$ = tmp;
 	}
 	| parameter_list ';' identifier_list ':' type
 	{
 		data_type_t *type = $5;
 		id_list_t *list = $3;
+		wfprintf(wout, ", ");
+		gen_code_identifier_list(wout, $3);
+
 		while (list) {
 			sym_node_t *node = init_sym_node(strdup(list->id), PRIM_NODE, type, sym_table->scope->offset);
 			table_put(sym_table->scope, node);
@@ -342,9 +337,12 @@ statement_list: statement
 		$$ = init_stmt_list($1);
 	}
 	| statement_list ';' statement {
-		stmt_list_t *tmp = init_stmt_list($3);
-		tmp->next = $1;
-		$$ = tmp;
+		stmt_list_t *tmp = $1;
+		while (tmp->next) {
+			tmp = tmp->next;	
+		}
+		tmp->next = init_stmt_list($3);
+		$$ = $1;
 	}
 	;
 
@@ -443,6 +441,9 @@ procedure_statement: ID
 		if (!ref) {
 			panic("\nProcedure with ID \"%s\" is not visable in this scope, line %d\n", $1, LINE_COUNT);
 		}
+		if (ref->ntype != PROC_NODE) {
+			panic("\n\"%s\" is not a procedure, line %d\n", $1, LINE_COUNT);
+		}
 		tmp->stmt.proc_stmt.sym_ref = ref;
 		tmp->stmt.proc_stmt.exp_list = NULL;
 		$$ = tmp;
@@ -453,6 +454,9 @@ procedure_statement: ID
 		sym_node_t *ref = search_stack(sym_table, $1);
 		if (!ref) {
 			panic("\nProcedure with ID \"%s\" is not visable in this scope, line %d\n", $1, LINE_COUNT);
+		}
+		if (ref->ntype != PROC_NODE) {
+			panic("\n\"%s\" is not a procedure, line %d\n", $1, LINE_COUNT);
 		}
 		tmp->stmt.proc_stmt.sym_ref = ref;
 		tmp->stmt.proc_stmt.exp_list = $3;
@@ -466,9 +470,12 @@ expression_list: expression
 	}
 	| expression_list ',' expression
 	{
-		exp_list_t *tmp = init_exp_list($3);
-		tmp->next = $1;
-		$$ = tmp;
+		exp_list_t *tmp = $1;
+		while(tmp->next) {
+			tmp = tmp->next;	
+		}
+		tmp->next = init_exp_list($3);
+		$$ = $1;
 	}
 	| empty
 	{
@@ -484,8 +491,8 @@ expression: simple_expression
 	{
 		exp_node_t *node = init_exp_node(OP_EXP, (void *)$2);
 		$$ = init_exp_tree(node);
-		$$->right = $1;
-		$$->left = $3;
+		$$->right = $3;
+		$$->left = $1;
 	}
 	;
 
@@ -502,8 +509,8 @@ simple_expression: term
 	{
 		exp_node_t *node = init_exp_node(OP_EXP, (void *)$2);
 		$$ = init_exp_tree(node);
-		$$->right = $1;
-		$$->left = $3;
+		$$->right = $3;
+		$$->left = $1;
 	}
 	;
 
@@ -515,8 +522,8 @@ term: factor
 	{
 		exp_node_t *node = init_exp_node(OP_EXP, (void *)$2);
 		$$ = init_exp_tree(node);
-		$$->right = $1;
-		$$->left = $3;
+		$$->right = $3;
+		$$->left = $1;
 	}
 	;
 
@@ -603,10 +610,8 @@ int main(int argc, char ** argv) {
 
 	if (argc == 3) {
 		wout = fopen(argv[2], "w");
-		gen_code_begin(wout, argv[1]);
 	} else {
-		wout = fopen("out.S", "w");
-		gen_code_begin(wout, argv[1]);
+		wout = fopen("out.js", "w");
 	}
 	yyin = input_file;
 

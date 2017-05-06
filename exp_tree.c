@@ -28,7 +28,7 @@ void print_exp_tree(exp_tree_t *tree, int spaces) {
                     wprintf("[/]");
                     break;
                 case EQ_OP:
-                    wprintf("[==]");
+                    wprintf("[=]");
                     break;
                 case L_OP:
                     wprintf("[<]");
@@ -71,6 +71,7 @@ void print_exp_tree(exp_tree_t *tree, int spaces) {
             }
             wprintf("[FUNC:%s]", node->func_exp->sym_ref->sym);
             while (tmp) {
+                wprintf("\n");
                 print_exp_tree(tmp->exp, spaces+4);
                 tmp = tmp->next;
             }
