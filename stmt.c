@@ -167,6 +167,13 @@ int semantic_check_body(sym_stack_t *scope, sym_node_t *ref, stmt_t *stmt) {
             exp_list_t *arg_list = stmt->stmt.proc_stmt.exp_list;
             sym_node_t *p = search_stack(scope, stmt->stmt.proc_stmt.sym_ref->sym);
             data_type_list_t *dt_list = p->ptype->types;
+            if (strcmp(p->sym, "write") == 0 || strcmp(p->sym, "read") == 0) {
+                if (!arg_list->next) {
+                    break;
+                } else {
+                    panic("\nRead and Write can only accept one argument, line %d\n", LINE_COUNT);
+                }
+            } 
             while (arg_list && dt_list) {
                 ret_type t = get_exp_type(arg_list->exp);
                 if (!((t == INTEGER_RET && dt_list->type->stype == INTEGER_TYPE) || (t == REAL_RET && dt_list->type->stype == REAL_TYPE))) {

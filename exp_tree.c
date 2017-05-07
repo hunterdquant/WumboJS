@@ -193,6 +193,7 @@ exp_tree_t *init_exp_tree(exp_node_t *node) {
     tmp->node = node;
     tmp->left = NULL;
     tmp->right = NULL;
+    tmp->is_paren = 0;
     return tmp;
 }
 

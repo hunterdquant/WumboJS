@@ -34,6 +34,7 @@ typedef struct exp_node_s {
 
 typedef struct exp_tree_s {
     exp_node_t *node;
+    int is_paren;
     struct exp_tree_s *left;
     struct exp_tree_s *right;
 } exp_tree_t;

@@ -1,16 +1,10 @@
 function main() {
-let x, y;
-function gcd(a, b) {
-let tmp1, tmp2;
-if (b<1) {
-return a;
-} else {
-tmp1 = Math.floor(a/b);
-tmp2 = a-b*tmp1;
-return gcd(b, tmp2);
+let x, y, z;
+function avg(x, y, z) {
+return (((x+y)+(z))/3.000000);
 }
-}
-x = prompt("Enter your input:");
-y = prompt("Enter your input:");
-alert(gcd(x, y));
+x = parseFloat(prompt("Enter your input:"));
+y = parseFloat(prompt("Enter your input:"));
+z = parseFloat(prompt("Enter your input:"));
+alert(avg(x, y, z));
 }

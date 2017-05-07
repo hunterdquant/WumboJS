@@ -56,8 +56,15 @@ void gen_code_exp(FILE *out, exp_tree_t *tree) {
         return;
     }
     exp_node_t *node = tree->node;
+    if (tree->is_paren) {
+        wfprintf(out, "(");
+    }
     if (node->type == OP_EXP && node->op == DIV_OP) {
-        wfprintf(out, "Math.floor(");
+        if (tree->right->node->type == REAL_EXP) {
+        } else if (tree->right->node->type != FUNC_EXP && tree->right->node->func_exp->sym_ref->ftype->rtype == REAL_RET) {
+        } else {
+            wfprintf(out, "Math.floor(");
+        }
     }
     gen_code_exp(out, tree->left);
     switch (node->type) {
@@ -146,6 +153,13 @@ void gen_code_exp(FILE *out, exp_tree_t *tree) {
     }
     gen_code_exp(out, tree->right);
     if (node->type == OP_EXP && node->op == DIV_OP) {
+       if (tree->right->node->type == REAL_EXP) {
+        } else if (tree->right->node->type != FUNC_EXP && tree->right->node->func_exp->sym_ref->ftype->rtype == REAL_RET) {
+        } else {
+          wfprintf(out, ")");
+        }
+    }
+    if (tree->is_paren) {
         wfprintf(out, ")");
     }
 }
@@ -241,7 +255,13 @@ void gen_code_proc_stmt(FILE *out, stmt_t *stmt) {
         wfprintf(out, ");\n");
     } else if (strcmp(stmt->stmt.proc_stmt.sym_ref->sym, "read") == 0) {
         sym_node_t *n = stmt->stmt.proc_stmt.exp_list->exp->node->sym_ref;
-        wfprintf(out, "%s = prompt(\"Enter your input:\");\n", n->sym);
+        if (n->ntype == PRIM_NODE && n->dtype->type == SIMPLE_SYM && n->dtype->stype == INTEGER_TYPE) {
+            wfprintf(out, "%s = parseInt(prompt(\"Enter your input:\"));\n", n->sym);
+        } else if (n->ntype == PRIM_NODE && n->dtype->type == SIMPLE_SYM && n->dtype->stype == REAL_TYPE) {
+            wfprintf(out, "%s = parseFloat(prompt(\"Enter your input:\"));\n", n->sym);
+        } else {
+            panic("\nUnknown type in read procedure call, line %d\n", LINE_COUNT);
+        }
     } else {
         wfprintf(out, "%s(", stmt->stmt.proc_stmt.sym_ref->sym);
         exp_list_t *arg_list = stmt->stmt.proc_stmt.exp_list;

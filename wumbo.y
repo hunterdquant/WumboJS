@@ -581,6 +581,7 @@ factor: ID
 	| '(' expression ')'
 	{
 		$$ = $2;
+		$$->is_paren = 1;
 	}
 	| NOT factor
 	{
