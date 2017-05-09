@@ -61,7 +61,7 @@ void gen_code_exp(FILE *out, exp_tree_t *tree) {
     }
     if (node->type == OP_EXP && node->op == DIV_OP) {
         if (tree->right->node->type == REAL_EXP) {
-        } else if (tree->right->node->type != FUNC_EXP && tree->right->node->func_exp->sym_ref->ftype->rtype == REAL_RET) {
+        } else if (tree->right->node->type == FUNC_EXP && tree->right->node->func_exp->sym_ref->ftype->rtype == REAL_RET) {
         } else {
             wfprintf(out, "Math.floor(");
         }
@@ -154,7 +154,7 @@ void gen_code_exp(FILE *out, exp_tree_t *tree) {
     gen_code_exp(out, tree->right);
     if (node->type == OP_EXP && node->op == DIV_OP) {
        if (tree->right->node->type == REAL_EXP) {
-        } else if (tree->right->node->type != FUNC_EXP && tree->right->node->func_exp->sym_ref->ftype->rtype == REAL_RET) {
+        } else if (tree->right->node->type == FUNC_EXP && tree->right->node->func_exp->sym_ref->ftype->rtype == REAL_RET) {
         } else {
           wfprintf(out, ")");
         }

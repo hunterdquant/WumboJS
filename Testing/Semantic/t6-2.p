@@ -7,7 +7,7 @@ program main( input, output );
   begin
   end;
 begin
-  while 7=7 do
+  while 7+7 do
   begin
     b := 7
   end;

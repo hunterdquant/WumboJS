@@ -1,10 +1,12 @@
 function main() {
-let x, y, z;
-function avg(x, y, z) {
-return (((x+y)+(z))/3.000000);
+let n;
+function fib(n) {
+if ((n<=1)) {
+return 1;
+} else {
+return fib(n-1)+fib(n-2);
 }
-x = parseFloat(prompt("Enter your input:"));
-y = parseFloat(prompt("Enter your input:"));
-z = parseFloat(prompt("Enter your input:"));
-alert(avg(x, y, z));
+}
+n = parseInt(prompt("Enter your input:"));
+alert(fib(n));
 }
